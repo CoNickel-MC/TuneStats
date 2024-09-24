@@ -11,7 +11,13 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Page {
-	private String title;
-	private String description;
-	private String imageURL;
+	public String title;
+	public String description;
+	public String imageURL;
+
+	public Page(String title, String description, String imageURL) {
+		this.title = title;
+		this.description = description;
+		this.imageURL = imageURL;
+	}
 }

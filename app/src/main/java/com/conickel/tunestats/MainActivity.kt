@@ -32,20 +32,27 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.conickel.tunestats.ui.theme.TuneStatsTheme
 import kotlinx.coroutines.launch
 
 
+var shortTermArtists:List<Page> = listOf()
+
+
 class MainActivity : ComponentActivity() {
-	private var uiState by mutableStateOf(UiState.Initial)
+	companion object{
+		var uiState by mutableStateOf(UiState.Initial)
+	}
+	var spotifyAPI:SpotifyAPI = SpotifyAPI()
 
 
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
+
+
 		enableEdgeToEdge()
 
 		setContent {
@@ -55,8 +62,9 @@ class MainActivity : ComponentActivity() {
 					content = { paddingValues ->
 						Column(modifier = Modifier.padding(paddingValues)) {
 							when (uiState) {
-								UiState.Initial -> RedirectButton(this@MainActivity)
-								UiState.TokenReceived -> Text("Token received")
+								UiState.Initial -> RedirectButton(this@MainActivity, spotifyAPI)
+								UiState.AuthCodeReceived -> Text("Token received")
+								UiState.TokenReceived -> SlidingBox(shortTermArtists)
 								UiState.Error -> Text("Error occurred")
 							}
 						}
@@ -85,28 +93,28 @@ class MainActivity : ComponentActivity() {
 		Log.d("MainActivity", "Auth code: $authCode")
 
 		if (authCode != null) {
-			uiState = UiState.TokenReceived
-			exchangeAuthCode.startAccessCodeRequest(authCode)
+			uiState = UiState.AuthCodeReceived
+			exchangeAuthCode.startAccessCodeRequest(authCode, spotifyAPI)
 		} else {
 			uiState = UiState.Error
-
-			val error = uri.getQueryParameter("error")
 		}
 	}
+
 	enum class UiState {
 		Initial,
+		AuthCodeReceived,
 		TokenReceived,
 		Error
 	}
 }
 
 @Composable
-fun RedirectButton(context: Context) {
+fun RedirectButton(context: Context, spotifyAPI: SpotifyAPI) {
 	Box(
 		modifier = Modifier.fillMaxSize(),
 		contentAlignment = Alignment.Center
 	) {
-		Button(onClick = { SpotifyAPI.getAuthCodeFromAPI(context) }) {
+		Button(onClick = { spotifyAPI.getAuthCodeFromAPI(context) }) {
 			Text(text = "Login with Spotify")
 		}
 	}
