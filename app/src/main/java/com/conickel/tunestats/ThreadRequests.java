@@ -24,13 +24,14 @@ class exchangeAuthCode extends Thread {
 	}
 }
 
-class getTopArtists extends Thread {
+class getTopAll extends Thread {
 	private static SpotifyAPI spotifyAPI;
 
 	@Override
 	public void run() {
 		try {
-			spotifyAPI.getTopArtists();
+			spotifyAPI.getTop(CONSTANTS.ItemType.tracks);spotifyAPI.getTop(CONSTANTS.ItemType.artists);
+			MainActivity.Companion.setUiState(MainActivity.UiState.TokenReceived);
 		}
 		catch (IOException | JSONException e) {
 			throw new RuntimeException(e);
@@ -38,7 +39,7 @@ class getTopArtists extends Thread {
 	}
 
 	public static void startRequest(SpotifyAPI spotifyAPI) {
-		getTopArtists.spotifyAPI = spotifyAPI;
-		new getTopArtists().start();
+		getTopAll.spotifyAPI = spotifyAPI;
+		new getTopAll().start();
 	}
 }

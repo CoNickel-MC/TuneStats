@@ -51,6 +51,7 @@ android {
 
 dependencies {
 	compileOnly(libs.lombok)
+	implementation ("androidx.compose.ui:ui-text-google-fonts:1.7.0")
 	implementation(libs.json)
 	implementation(libs.coil.compose)
 	implementation(libs.androidx.core.ktx)

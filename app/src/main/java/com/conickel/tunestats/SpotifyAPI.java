@@ -1,14 +1,11 @@
 package com.conickel.tunestats;
 
-import static com.conickel.tunestats.CONSTANTS.clientId;
-import static com.conickel.tunestats.CONSTANTS.clientSecret;
-import static com.conickel.tunestats.CONSTANTS.redirectURL;
-import static com.conickel.tunestats.CONSTANTS.scopes;
+import static com.conickel.tunestats.CONSTANTS.*;
 
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.util.Log;
+
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -19,7 +16,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -27,9 +23,6 @@ import java.util.Base64;
 import java.util.List;
 
 import javax.net.ssl.HttpsURLConnection;
-
-import lombok.Setter;
-
 
 
 public class SpotifyAPI {
@@ -44,8 +37,6 @@ public class SpotifyAPI {
 	}
 
 	public void getAuthCodeFromAPI(Context context) {
-
-		Log.d("MainActivity", "Started");
 
 		String spotifyAuthUrl = "https://accounts.spotify.com/authorize?" +
 				"client_id=" + clientId +
@@ -89,12 +80,12 @@ public class SpotifyAPI {
 
 			JSONObject jsonResponse = new JSONObject(response.toString());
 			accessToken = jsonResponse.getString("access_token");
-			getTopArtists.startRequest(spotifyAPI);
+			getTopAll.startRequest(spotifyAPI);
 		}
 	}
 
-	public void getTopArtists() throws IOException, JSONException {
-		URL topArtistsURL = new URL("https://api.spotify.com/v1/me/top/artists?time_range=short_term&limit=15&offset=0");
+	public void getTop(ItemType itemType) throws IOException, JSONException {
+		URL topArtistsURL = new URL("https://api.spotify.com/v1/me/top/"+itemType+"?time_range=short_term&limit=15&offset=0");
 
 		HttpsURLConnection conn = (HttpsURLConnection) topArtistsURL.openConnection();
 		conn.setRequestMethod("GET");
@@ -105,6 +96,7 @@ public class SpotifyAPI {
 		int responseCode = conn.getResponseCode();
 
 		if (responseCode == HttpsURLConnection.HTTP_OK) {
+
 			BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
 			String inputLine;
 			StringBuilder response = new StringBuilder();
@@ -114,26 +106,50 @@ public class SpotifyAPI {
 			}
 			in.close();
 
-			List<Page> pageList = new ArrayList<>();
-
-
-			JSONArray fullResponse = new JSONObject(response.toString()).getJSONArray("items");
-			for (int i = 0; i < fullResponse.length(); i++) {
-				StringBuilder genres = new StringBuilder();
-				JSONObject temp = fullResponse.getJSONObject(i);
-				JSONArray genresArray = temp.getJSONArray("genres");
-				for (int j = 0; j < genresArray.length(); j++) {
-					genres.append(genresArray.getString(j));
-					genres.append(", ");
-				}
-				genres.substring(0, genres.length()-2);
-
-				pageList.add(new Page(temp.getString("name"), genres.toString(), temp.getJSONArray("images").getJSONObject(1).getString("url")));
+			switch (itemType) {
+				case artists:
+					getTopArtists(response);
+					break;
+				case tracks:
+					getTopTracks(response);
+					break;
 			}
-			MainActivityKt.setShortTermArtists(pageList);
-			MainActivity.Companion.setUiState(MainActivity.UiState.TokenReceived);
 
 		}
 	}
+	private static void getTopArtists(StringBuilder response) throws JSONException {
+		List<Page> pageList = new ArrayList<>();
+
+
+		JSONArray fullResponse = new JSONObject(response.toString()).getJSONArray("items");
+		for (int i = 0; i < fullResponse.length(); i++) {
+			StringBuilder genres = new StringBuilder();
+			JSONObject temp = fullResponse.getJSONObject(i);
+			JSONArray genresArray = temp.getJSONArray("genres");
+			for (int j = 0; j < genresArray.length(); j++) {
+				genres.append(genresArray.getString(j));
+				genres.append(", ");
+			}
+			genres.substring(0, genres.length()-2);
+
+			pageList.add(new Page(temp.getString("name"), genres.toString(), temp.getJSONArray("images").getJSONObject(0).getString("url")));
+		}
+		MainActivityKt.setShortTermArtists(pageList);
+	}
+
+	private static void getTopTracks(StringBuilder response) throws JSONException {
+		List<Page> pageList = new ArrayList<>();
+
+
+		JSONArray fullResponse = new JSONObject(response.toString()).getJSONArray("items");
+		for (int i = 0; i < fullResponse.length(); i++) {
+			JSONObject temp = fullResponse.getJSONObject(i);
+
+			pageList.add(new Page(temp.getString("name"),temp.getJSONArray("artists").getJSONObject(0).getString("name") , temp.getJSONObject("album").getJSONArray("images").getJSONObject(0).getString("url")));
+		}
+		MainActivityKt.setShortTermTracks(pageList);
+
+	}
+
 }
 
