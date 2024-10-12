@@ -8,7 +8,13 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
-/build
+/build/generated
+/build/intermediates
+/build/kotlin
+/build/snapshot
+/build/tmp
+/build/outputs/logs
+/build/outputs/logs/androidTest/debug
 /captures
 .externalNativeBuild
 .cxx
