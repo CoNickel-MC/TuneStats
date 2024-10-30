@@ -1,5 +1,8 @@
 package com.conickel.tunestats;
 
+import static com.conickel.tunestats.CONSTANTS.ItemType.*;
+import static com.conickel.tunestats.CONSTANTS.TimeFrame.*;
+
 import org.json.JSONException;
 
 import java.io.IOException;
@@ -12,6 +15,7 @@ class exchangeAuthCode extends Thread {
 	public void run() {
 		try {
 			spotifyAPI.exchangeAuthCodeForAccessToken(spotifyAPI);
+			spotifyAPI.sendUserDetailsToPYListeningScript();
 		} catch (IOException | JSONException e) {
 			throw new RuntimeException(e);
 		}
@@ -30,7 +34,9 @@ class getTopAll extends Thread {
 	@Override
 	public void run() {
 		try {
-			spotifyAPI.getTop(CONSTANTS.ItemType.tracks);spotifyAPI.getTop(CONSTANTS.ItemType.artists);
+			spotifyAPI.getTop(tracks, short_term);spotifyAPI.getTop(artists, short_term);
+			spotifyAPI.getTop(tracks, medium_term);spotifyAPI.getTop(artists, medium_term);
+			spotifyAPI.getTop(tracks, long_term);spotifyAPI.getTop(artists, long_term);
 			MainActivity.Companion.setUiState(MainActivity.UiState.TokenReceived);
 		}
 		catch (IOException | JSONException e) {

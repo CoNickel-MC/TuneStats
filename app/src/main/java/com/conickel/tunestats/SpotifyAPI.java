@@ -5,6 +5,7 @@ import static com.conickel.tunestats.CONSTANTS.*;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.util.Log;
 
 
 import org.json.JSONArray;
@@ -28,9 +29,7 @@ import javax.net.ssl.HttpsURLConnection;
 public class SpotifyAPI {
 	private String authCode;
 	private String accessToken;
-
-
-	private final String baseAPIURL = "https://api.spotify.com/";
+	private String refreshToken;
 
 	public void setAuthCode(String authCode) {
 		this.authCode = authCode;
@@ -45,6 +44,49 @@ public class SpotifyAPI {
 				"&scope=" + scopes;
 
 		context.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(spotifyAuthUrl)));
+	}
+
+	public void sendUserDetailsToPYListeningScript() throws IOException, JSONException {
+		String name;
+		String emailId;
+		HttpURLConnection conn = (HttpURLConnection) new URL("https://api.spotify.com/v1/me").openConnection();
+
+		conn.setRequestMethod("GET");
+		conn.setRequestProperty("Authorization", "Bearer " + accessToken);
+
+		int responseCode = conn.getResponseCode();
+
+		if (responseCode == HttpsURLConnection.HTTP_OK) {
+			BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+			String inputLine;
+			StringBuilder response = new StringBuilder();
+
+			while ((inputLine = in.readLine()) != null) {
+				response.append(inputLine);
+			}
+			in.close();
+			conn.disconnect();
+			JSONObject jsonResponse = new JSONObject(response.toString());
+			name = jsonResponse.getString("display_name");
+			emailId = jsonResponse.getString("email");
+
+
+			HttpURLConnection connection = (HttpURLConnection) new URL("https://spotifylisteningtimescript.onrender.com/addUser").openConnection();
+
+			connection.setRequestMethod("POST");
+			connection.setRequestProperty("Content-Type","application/json");
+
+			String payload = String.format(
+					"{\"name\":\"%s\",\"emailId\":\"%s\",\"currentAccessToken\":\"%s\",\"refreshToken\":\"%s\",\"listenTime\":0,\"lastCheckTime\":0}",
+					name, emailId, accessToken, refreshToken
+			);
+
+			byte[] out = payload.getBytes(StandardCharsets.UTF_8);
+			OutputStream stream = connection.getOutputStream();
+			stream.write(out);
+
+			connection.disconnect();
+		}
 	}
 
 	public void exchangeAuthCodeForAccessToken(SpotifyAPI spotifyAPI) throws IOException, JSONException {
@@ -80,12 +122,14 @@ public class SpotifyAPI {
 
 			JSONObject jsonResponse = new JSONObject(response.toString());
 			accessToken = jsonResponse.getString("access_token");
+			refreshToken = jsonResponse.getString("refresh_token");
+			conn.disconnect();
 			getTopAll.startRequest(spotifyAPI);
 		}
 	}
 
-	public void getTop(ItemType itemType) throws IOException, JSONException {
-		URL topArtistsURL = new URL("https://api.spotify.com/v1/me/top/"+itemType+"?time_range=short_term&limit=15&offset=0");
+	public void getTop(ItemType itemType, TimeFrame timeFrame) throws IOException, JSONException {
+		URL topArtistsURL = new URL("https://api.spotify.com/v1/me/top/"+itemType+"?time_range="+timeFrame+"&limit=15&offset=0");
 
 		HttpsURLConnection conn = (HttpsURLConnection) topArtistsURL.openConnection();
 		conn.setRequestMethod("GET");
@@ -105,19 +149,19 @@ public class SpotifyAPI {
 				response.append(inputLine);
 			}
 			in.close();
-
+			conn.disconnect();
 			switch (itemType) {
 				case artists:
-					getTopArtists(response);
+					getTopArtists(response, timeFrame);
 					break;
 				case tracks:
-					getTopTracks(response);
+					getTopTracks(response, timeFrame);
 					break;
 			}
 
 		}
 	}
-	private static void getTopArtists(StringBuilder response) throws JSONException {
+	private static void getTopArtists(StringBuilder response, TimeFrame timeFrame) throws JSONException {
 		List<Page> pageList = new ArrayList<>();
 
 
@@ -134,10 +178,20 @@ public class SpotifyAPI {
 
 			pageList.add(new Page(temp.getString("name"), genres.toString(), temp.getJSONArray("images").getJSONObject(0).getString("url")));
 		}
-		MainActivityKt.setShortTermArtists(pageList);
+		switch (timeFrame) {
+			case short_term:
+				MainActivityKt.setShortTermArtists(pageList);
+				break;
+			case medium_term:
+				MainActivityKt.setMediumTermArtists(pageList);
+				break;
+			case long_term:
+				MainActivityKt.setLongTermArtists(pageList);
+				break;
+		}
 	}
 
-	private static void getTopTracks(StringBuilder response) throws JSONException {
+	private static void getTopTracks(StringBuilder response, TimeFrame timeFrame) throws JSONException {
 		List<Page> pageList = new ArrayList<>();
 
 
@@ -147,7 +201,17 @@ public class SpotifyAPI {
 
 			pageList.add(new Page(temp.getString("name"),temp.getJSONArray("artists").getJSONObject(0).getString("name") , temp.getJSONObject("album").getJSONArray("images").getJSONObject(0).getString("url")));
 		}
-		MainActivityKt.setShortTermTracks(pageList);
+		switch (timeFrame) {
+			case short_term:
+				MainActivityKt.setShortTermTracks(pageList);
+				break;
+			case medium_term:
+				MainActivityKt.setMediumTermTracks(pageList);
+				break;
+			case long_term:
+				MainActivityKt.setLongTermTracks(pageList);
+				break;
+		}
 
 	}
 

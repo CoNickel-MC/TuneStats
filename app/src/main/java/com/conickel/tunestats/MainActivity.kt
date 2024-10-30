@@ -54,6 +54,10 @@ import kotlin.math.abs
 
 var shortTermArtists: List<Page> = listOf()
 var shortTermTracks: List<Page> = listOf()
+var mediumTermArtists: List<Page> = listOf()
+var mediumTermTracks: List<Page> = listOf()
+var longTermArtists: List<Page> = listOf()
+var longTermTracks: List<Page> = listOf()
 
 
 class MainActivity : ComponentActivity() {
@@ -81,6 +85,10 @@ class MainActivity : ComponentActivity() {
 								Column(Modifier.fillMaxSize()) {
 									SlidingBox(shortTermTracks, Modifier)
 									SlidingBox(shortTermArtists, Modifier)
+									SlidingBox(mediumTermTracks, Modifier)
+									SlidingBox(mediumTermArtists, Modifier)
+									SlidingBox(longTermTracks, Modifier)
+									SlidingBox(longTermArtists, Modifier)
 								}
 							}
 
