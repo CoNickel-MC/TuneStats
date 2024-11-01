@@ -11,14 +11,19 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,20 +35,30 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
@@ -82,14 +97,7 @@ class MainActivity : ComponentActivity() {
 							UiState.Initial -> InitPage { spotifyAPI.getAuthCodeFromAPI(this@MainActivity) }
 							UiState.AuthCodeReceived -> Text("Token received")
 							UiState.TokenReceived -> {
-								Column(Modifier.fillMaxSize()) {
-									SlidingBox(shortTermTracks, Modifier)
-									SlidingBox(shortTermArtists, Modifier)
-									SlidingBox(mediumTermTracks, Modifier)
-									SlidingBox(mediumTermArtists, Modifier)
-									SlidingBox(longTermTracks, Modifier)
-									SlidingBox(longTermArtists, Modifier)
-								}
+								LazyListWithScrollStateControl(listOf(shortTermTracks, mediumTermTracks, longTermTracks))
 							}
 
 							UiState.Error -> Text("Error occurred")
@@ -127,6 +135,11 @@ class MainActivity : ComponentActivity() {
 		Initial, AuthCodeReceived, TokenReceived, Error
 	}
 }
+
+val defaultModification = Modifier
+	.fillMaxSize()
+	.background(Color(30, 31, 34))
+
 
 @Composable
 fun SlidingBox(items: List<Page>, modifier: Modifier) {
@@ -184,10 +197,103 @@ fun SlidingBox(items: List<Page>, modifier: Modifier) {
 	}
 }
 
+@Composable
+fun LazyListWithScrollStateControl(pageListList: List<List<Page>>) {
+	val lazyListState = rememberLazyListState()
+	val coroutineScope = rememberCoroutineScope()
+	val scrollOffset by remember { derivedStateOf { lazyListState.firstVisibleItemScrollOffset } }
+	val firstItemVisible by remember { derivedStateOf { lazyListState.firstVisibleItemIndex } }
+	val screenWidthPx = with(LocalDensity.current) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
 
-val defaultModification = Modifier
-	.fillMaxSize()
-	.background(Color(30, 31, 34))
+
+	LaunchedEffect(lazyListState.isScrollInProgress) {
+		if (!lazyListState.isScrollInProgress && scrollOffset != 0) {
+			if (scrollOffset < (screenWidthPx/1.78)) {
+				lazyListState.animateScrollToItem(firstItemVisible)
+			} else {
+				lazyListState.animateScrollToItem(firstItemVisible + 1)
+			}
+		}
+	}
+
+	LazyRow(state = lazyListState) {
+		items(pageListList) { item: List<Page> ->
+			PageListView(item)
+		}
+	}
+}
+
+
+@Composable
+fun PageListView(pageList: List<Page>) {
+	LazyColumn(
+		modifier = Modifier
+			.width(LocalConfiguration.current.screenWidthDp.dp)
+			.background(Color(24, 24, 28)) // Consistent dark background
+			.padding(horizontal = 4.dp)
+	) {
+		itemsIndexed(pageList) { index, item: Page ->
+			Box(
+				modifier = Modifier
+					.padding(vertical = 4.dp) // Reduced padding for a more unified look
+					.fillMaxWidth()
+					.clip(RoundedCornerShape(10.dp)) // Softer corner radius
+					.background(Color(35, 35, 40)) // Single background color for all items
+			) {
+				Row(
+					modifier = Modifier
+						.padding(start = if (index >= 9) 8.dp else 19.dp, 12.dp, 12.dp,12.dp)
+						.fillMaxWidth(),
+					verticalAlignment = Alignment.CenterVertically // Consistent alignment
+				) {
+					Text(
+						text = "${index + 1}",
+						color = Color(180, 180, 200),
+						fontSize = 20.sp,
+						fontWeight = FontWeight.Medium,
+						modifier = Modifier.padding(end = if (index >= 9) 12.dp else 14.dp) // Adjust spacing for alignment
+					)
+					Image(
+						painter = rememberAsyncImagePainter(model = item.imageURL),
+						contentDescription = item.title,
+						modifier = Modifier
+							.size(100.dp)
+							.clip(RoundedCornerShape(8.dp)) // Soft corner radius for image
+							.background(Color(50, 50, 58)) // Darker border for subtle contrast
+					)
+
+					Spacer(modifier = Modifier.width(16.dp))
+
+					Column(
+						modifier = Modifier
+							.fillMaxWidth()
+					) {
+						Text(
+							text = item.title,
+							color = Color(235, 235, 245), // Light text for contrast
+							fontSize = 20.sp,
+							fontWeight = FontWeight.Bold,
+							maxLines = 1,
+							overflow = TextOverflow.Ellipsis
+						)
+						Spacer(modifier = Modifier.height(4.dp))
+						Text(
+							text = item.description,
+							color = Color(200, 200, 215), // Slightly muted light color for secondary text
+							fontSize = 16.sp,
+							maxLines = 2,
+							overflow = TextOverflow.Ellipsis,
+							lineHeight = 20.sp
+						)
+					}
+				}
+			}
+		}
+	}
+}
+
+
+
 
 
 @Composable
@@ -231,7 +337,6 @@ fun InitPage(onClickFunction: () -> Unit) {
 }
 
 
-@Preview(showBackground = true)
 @Composable
 fun MainPage() {
 	Column(modifier = defaultModification) {
@@ -294,9 +399,8 @@ fun ButtonForMainPage(text: String, modifier: Modifier, onClickFunction: () -> U
 	}
 }
 
-
 @Preview
 @Composable
 fun TestTab() {
-	InitPage { println("hello") }
+	LazyListWithScrollStateControl(listOf(listOf(Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg")), listOf(Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg")), listOf(Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"),Page("title", "description", "https://canto-wp-media.s3.amazonaws.com/app/uploads/2019/08/19194138/image-url-3.jpg"))))
 }
